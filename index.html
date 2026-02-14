@@ -1,0 +1,298 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Aplikasi Pengajuan Makan v1.0</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script defer src="https://unpkg.com/alpinejs@3.x.x/dist/cdn.min.js"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;600;800&display=swap" rel="stylesheet">
+    <style>
+        body { font-family: 'Plus Jakarta Sans', sans-serif; overflow: hidden; margin: 0; }
+        .glass { background: rgba(255, 255, 255, 0.75); backdrop-filter: blur(16px) saturate(180%); border: 2px solid rgba(255, 255, 255, 0.5); }
+        [x-cloak] { display: none !important; }
+        
+        #dvd-video { 
+            position: fixed; 
+            width: 200px; 
+            border-radius: 20px; 
+            box-shadow: 0 15px 45px rgba(0,0,0,0.2); 
+            border: 4px solid white;
+            z-index: 1;
+            pointer-events: none;
+        }
+
+        @keyframes floatBlob {
+            0% { transform: translate(0px, 0px) scale(1); }
+            33% { transform: translate(30px, -50px) scale(1.1); }
+            66% { transform: translate(-20px, 20px) scale(0.9); }
+            100% { transform: translate(0px, 0px) scale(1); }
+        }
+        .animate-blob { animation: floatBlob 7s infinite; }
+        .animation-delay-2000 { animation-delay: 2s; }
+        .animation-delay-4000 { animation-delay: 4s; }
+    </style>
+</head>
+<body class="bg-rose-50 min-h-screen flex items-center justify-center p-4 relative">
+
+    <div class="fixed inset-0 -z-10 overflow-hidden pointer-events-none">
+        <div class="absolute top-10 left-10 w-72 h-72 bg-rose-400 rounded-full mix-blend-multiply filter blur-3xl opacity-60 animate-blob"></div>
+        <div class="absolute top-1/2 right-10 w-96 h-96 bg-teal-300 rounded-full mix-blend-multiply filter blur-3xl opacity-60 animate-blob animation-delay-2000"></div>
+        <div class="absolute -bottom-8 left-1/3 w-80 h-80 bg-purple-300 rounded-full mix-blend-multiply filter blur-3xl opacity-60 animate-blob animation-delay-4000"></div>
+    </div>
+
+    <div x-data="quizApp()" x-init="initDVD()" class="w-full flex items-center justify-center">
+        
+        <div x-show="!hasInteracted" 
+             class="fixed inset-0 z-50 bg-rose-500 backdrop-blur-sm flex flex-col items-center justify-center text-white cursor-pointer transition-opacity duration-500"
+             @click="enterSite()">
+            <div class="animate-bounce text-6xl mb-4">💌</div>
+            <h1 class="text-2xl font-bold">Ada pesan masuk...</h1>
+            <p class="mt-2 text-sm opacity-80">(Klik layar untuk buka)</p>
+        </div>
+
+        <template x-if="step === 0">
+            <video id="dvd-video" loop playsinline>
+                <source src="/mp4/anjingcrop.mp4" type="video/mp4">
+            </video>
+        </template>
+
+        <div class="w-full max-w-md glass p-8 rounded-3xl shadow-2xl relative z-10 overflow-hidden" x-show="hasInteracted" x-transition>
+            
+            <div x-show="step === 0" x-transition>
+                <h1 class="text-3xl font-extrabold text-gray-800 mb-4 text-center italic">🚨 Sistem Audit Kencan</h1>
+                <p class="text-gray-600 mb-6 font-medium text-center">Terdeteksi indikasi lapar akut. Mohon lengkapi kuesioner kelayakan makan siang/malam berikut.</p>
+                <div class="flex justify-center">
+                    <button @click="startAudit()" class="bg-rose-500 hover:bg-rose-600 text-white font-bold py-4 px-10 rounded-full shadow-lg transition-all transform hover:scale-105 active:scale-95">
+                        Mulai Audit
+                    </button>
+                </div>
+            </div>
+
+            <form x-show="step > 0 && step <= questions.length" novalidate x-cloak>
+                <template x-for="(q, index) in questions" :key="index">
+                    <div x-show="step === index + 1" x-transition class="space-y-6">
+                        
+                        <div class="w-full bg-gray-200 h-2 rounded-full overflow-hidden">
+                            <div class="bg-rose-400 h-full transition-all duration-500" :style="`width: ${(step / questions.length) * 100}%`"></div>
+                        </div>
+                        
+                        <div class="w-full h-48 rounded-2xl overflow-hidden shadow-md border-2 border-white">
+                            <img :src="q.gif" class="w-full h-full object-cover" alt="Reaction GIF">
+                        </div>
+
+                        <h2 class="text-xl font-bold text-gray-700 italic" x-text="q.text"></h2>
+
+                        <div class="space-y-3">
+                            <template x-if="q.type === 'radio'">
+                                <template x-for="opt in q.options" :key="opt">
+                                    <label class="flex items-center p-4 bg-white rounded-xl cursor-pointer hover:bg-rose-50 transition border-2 border-rose-100 hover:border-rose-300 shadow-sm">
+                                        <input type="radio" :name="q.id" :value="opt" x-model="answers[q.id]" class="w-4 h-4 text-rose-500 accent-rose-500">
+                                        <span class="ml-4 text-gray-700 font-medium" x-text="opt"></span>
+                                    </label>
+                                </template>
+                            </template>
+
+                            <template x-if="q.type === 'text' || q.type === 'date'">
+                                <input :type="q.type" 
+                                       :name="q.id" 
+                                       x-model="answers[q.id]" 
+                                       placeholder="Ketik jawaban di sini..."
+                                       class="w-full p-4 bg-white rounded-xl border-2 border-rose-300 focus:border-rose-600 focus:ring-4 focus:ring-rose-200 outline-none transition text-gray-800 shadow-sm">
+                            </template>
+                        </div>
+
+                        <div x-show="showError" x-transition class="text-red-500 text-sm font-bold text-center animate-pulse">
+                            ⚠️ Isi dulu dong manis...
+                        </div>
+
+                        <div class="flex justify-between items-center mt-8">
+                            <button type="button" @click="step--" x-show="step > 1" class="text-gray-500 font-semibold text-sm underline hover:text-gray-800">Back</button>
+                            
+                            <button type="button" @click="validateAndNext()" class="ml-auto bg-gray-800 hover:bg-gray-900 text-white font-bold py-3 px-8 rounded-xl transition-all active:scale-95 shadow-md">
+                                <span x-text="step === questions.length ? 'Finalisasi Data' : 'Lanjut →'"></span>
+                            </button>
+                        </div>
+                    </div>
+                </template>
+            </form>
+
+            <div x-show="step === 12" x-cloak class="text-center space-y-10 py-10">
+                <img src="https://media.giphy.com/media/v1.Y2lkPTc5MGI3NjExM3R6bWd6bWZ6bWZ6bWZ6bWZ6bWZ6bWZ6bWZ6bWZ6bWZ6bWZ6bCZlcD12MV9pbnRlcm5hbF9naWZfYnlfaWQmY3Q9Zw/l0MYt5jPR6QX5pnqM/giphy.gif" class="w-full h-48 object-cover rounded-2xl shadow-md border-2 border-white mb-4">
+                <h2 class="text-2xl font-black text-gray-800 italic leading-tight">Jadi, gimana? Makan bareng ya? 🥯</h2>
+                <div class="flex flex-col gap-4 justify-center items-center h-48">
+                    <button @click="finish()" class="z-20 bg-gradient-to-r from-green-500 to-emerald-600 hover:from-green-600 hover:to-emerald-700 text-white font-black py-4 px-12 rounded-2xl text-2xl shadow-xl transform transition-all hover:scale-105 active:scale-95 ring-4 ring-green-200">
+                        IYA GAS!
+                    </button>
+                    <div class="relative h-12 w-full flex justify-center">
+                         <button @mouseover="moveButton($el)" @click="moveButton($el)"
+                            :style="`position: ${isMoved ? 'fixed' : 'relative'}; top: ${y}px; left: ${x}px; transition: all 0.2s ease;`"
+                            class="z-10 bg-red-400 hover:bg-red-500 text-white py-2 px-8 rounded-full font-bold text-sm shadow-md whitespace-nowrap">
+                        Enggak dulu deh
+                        </button>
+                    </div>
+                </div>
+            </div>
+
+            <div x-show="step === 13" x-cloak class="text-center py-10">
+                <div class="text-7xl mb-6 animate-bounce">🎉</div>
+                <h2 class="text-3xl font-black text-gray-800 mb-4">Audit Selesai!</h2>
+                <p class="text-gray-700 text-lg font-medium leading-relaxed">Data sudah terkirim. <br>Sampai ketemu di tempat janjian 🍽️❤️</p>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        function quizApp() {
+            return {
+                step: 0,
+                hasInteracted: false,
+                isMoved: false,
+                showError: false,
+                x: 0, y: 0,
+                answers: {},
+                questions: [
+                    { 
+                        id: 'identitas', 
+                        text: 'Apakah benar Anda orang paling asik sedunia?', 
+                        gif: 'https://media2.giphy.com/media/v1.Y2lkPTc5MGI3NjExaHRteGNueWVyeGsxd3NsYXFjbThmOWtxczI0Z2VpbHpzcHQ1NXNqciZlcD12MV9pbnRlcm5hbF9naWZfYnlfaWQmY3Q9Zw/G8rcbSPfCgs3VDrWi5/giphy.gif', // Leonardo Toast
+                        type: 'radio', 
+                        options: ['Iya bener', 'Emang bener', 'Kayanya sih iya'] 
+                    },
+                    { 
+                        id: 'kelaparan', 
+                        text: 'Skala 1-10 seberapa laper sekarang?', 
+                        gif: 'https://media0.giphy.com/media/v1.Y2lkPTc5MGI3NjExOHM1YWNwenpwcmpkdTd1aWpxaHpuY2RvM2V5bmp3NXU2bDludnF4ZCZlcD12MV9pbnRlcm5hbF9naWZfYnlfaWQmY3Q9Zw/696Y24Ar1ktZmf7Qe3/giphy.gif', // Patrick Eating
+                        type: 'radio', 
+                        options: ['5 - Masih aman', '8 - Udah mulai berisik perut', '10 - Butuh ayam geprek SEKARANG'] 
+                    },
+                    { 
+                        id: 'makanapa', 
+                        text: 'Lagi Kepikiran Makan Apa?', 
+                        gif: 'https://media0.giphy.com/media/v1.Y2lkPTc5MGI3NjExdDVuNTEyMzdoZHV1dGU4cndhZmpyZDd4cTlueTRzYXZ0cjcyZ2czOCZlcD12MV9pbnRlcm5hbF9naWZfYnlfaWQmY3Q9Zw/WRQBXSCnEFJIuxktnw/giphy.gif', // Thinking about food
+                        type: 'radio', 
+                        options: ['Indonesia (aku cinta tanah air)', 'Jepang (watashi nak makan shushi)', 'swedish (makanan swish authentic)', 'Apa aja bolehh'] 
+                    },
+                    { 
+                        id: 'genre', 
+                        text: 'Mending makan kenyang atau makan cantik?', 
+                        gif: 'https://c.tenor.com/SM_5qo5LQMIAAAAM/eating-lunch.gif', // Cute cat
+                        type: 'radio', 
+                        options: ['Kenyang (Nasi is Life)', 'Cantik (Foto dulu baru makan)', 'Random aja'] 
+                    },
+                    { 
+                        id: 'terserah', 
+                        text: 'Berapa kali kamu bilang "Terserah" dalam sehari?', 
+                        gif: 'https://media1.tenor.com/m/I9u3zojc-PAAAAAC/terserah-kentut.gif', // Travolta Confused
+                        type: 'radio', 
+                        options: ['0 kali (Impossible)', '1-10 kali', 'Tak terhingga'] 
+                    },
+                    { 
+                        id: 'bubur', 
+                        text: 'Tim bubur diaduk atau nggak?', 
+                        gif: 'https://media.tenor.com/VwmFDyI4zrIAAAAM/cat.gif', // Mixing food
+                        type: 'radio', 
+                        options: ['Diaduk (Nikmat)', 'Gak diaduk (Estetik)', 'Bodo amat yang penting bubur'] 
+                    },
+                    { 
+                        id: 'motor_mobil', 
+                        text: 'Sirkulasi udara motoran atau adem-ademan mobil?', 
+                        gif: 'https://i.pinimg.com/originals/d3/c6/5e/d3c65e6596d9b60eec4f12a6031fc924.gif', // Dog in car
+                        type: 'radio', 
+                        options: ['Motoran biar kena angin', 'Mobil biar gak lepek', 'Jalan kaki (kalo deket)'] 
+                    },
+                    { 
+                        id: 'kapan', 
+                        text: 'Kapan kira-kira waktu audit makanan ini kosong?', 
+                        gif: 'https://i.pinimg.com/originals/d3/c6/5e/d3c65e6596d9b60eec4f12a6031fc924.gif', // Waiting/Watch
+                        type: 'date' 
+                    },
+                    { 
+                        id: 'request', 
+                        text: 'Ada titipan pesan atau request khusus?', 
+                        gif: 'https://media.giphy.com/media/v1.Y2lkPTc5MGI3NjExYmdiZjIzMGxwbWkzN3IxazBocnp5bmlzZWE2azVqeTc4OTlycW9pMCZlcD12MV9naWZzX3NlYXJjaCZjdD1n/59kcfcs4L6S4mcB7Ut/giphy.gif', // Writing
+                        type: 'text' 
+                    },
+                    { 
+                        id: 'siap', 
+                        text: 'Sudah yakin dengan semua jawaban di atas?', 
+                        gif: 'https://media.giphy.com/media/v1.Y2lkPTc5MGI3NjExOXY0NjdtbHlpZGQ5ZmNxNDN5Z3NucW5yZWhyMHhzMTZmNmc3MG8yeiZlcD12MV9naWZzX3NlYXJjaCZjdD1n/D63HGAzG15LQrjBPRE/giphy.gif', // Sweating
+                        type: 'radio', 
+                        options: ['Yakin 100%', 'Bismillah yakin'] 
+                    }
+                ],
+                enterSite() {
+                    this.hasInteracted = true;
+                    const video = document.getElementById('dvd-video');
+                    if (video) {
+                        video.muted = false;
+                        video.volume = 1.0;
+                        video.play().catch(e => console.log(e));
+                    }
+                },
+                startAudit() { this.step = 1; },
+                validateAndNext() {
+                    const currentQ = this.questions[this.step - 1];
+                    const currentAnswer = this.answers[currentQ.id];
+                    if (!currentAnswer || currentAnswer === "") {
+                        this.showError = true;
+                        setTimeout(() => this.showError = false, 2000);
+                        return; 
+                    }
+                    this.showError = false;
+                    // Logika step disesuaikan dengan jumlah pertanyaan baru (11 pertanyaan)
+                    if (this.step < this.questions.length) { 
+                        this.step++; 
+                    } else { 
+                        this.step = 12; // Pindah ke layar "Jadi gimana?"
+                    }
+                },
+                moveButton(el) {
+                    this.isMoved = true;
+                    const maxX = window.innerWidth - el.offsetWidth - 50;
+                    const maxY = window.innerHeight - el.offsetHeight - 50;
+                    this.x = Math.random() * maxX + 25;
+                    this.y = Math.random() * maxY + 25;
+                },
+                async finish() {
+                    this.answers['final_verdict'] = 'ACCEPTED';
+                    this.submitForm();
+                },
+                async submitForm() {
+                    try {
+                        await fetch('https://formspree.io/f/maqdoweq', {
+                            method: 'POST',
+                            body: JSON.stringify(this.answers),
+                            headers: { 'Accept': 'application/json', 'Content-Type': 'application/json' }
+                        });
+                        this.step = 13; // Layar Sukses
+                    } catch (e) { this.step = 13; }
+                },
+                initDVD() {
+                    let posX = 20, posY = 20;
+                    let speedX = 2.5, speedY = 2.5;
+                    const animate = () => {
+                        const video = document.getElementById('dvd-video');
+                        if (!video) {
+                             if (this.step === 0) requestAnimationFrame(animate);
+                             return;
+                        }
+                        const winW = window.innerWidth;
+                        const winH = window.innerHeight;
+                        const vidW = video.offsetWidth || 200;
+                        const vidH = video.offsetHeight || 150;
+                        posX += speedX;
+                        posY += speedY;
+                        if (posX + vidW >= winW || posX <= 0) speedX *= -1;
+                        if (posY + vidH >= winH || posY <= 0) speedY *= -1;
+                        video.style.left = `${posX}px`;
+                        video.style.top = `${posY}px`;
+                        if (this.step === 0) requestAnimationFrame(animate);
+                    };
+                    requestAnimationFrame(animate);
+                }
+            }
+        }
+    </script>
+</body>
+</html>
